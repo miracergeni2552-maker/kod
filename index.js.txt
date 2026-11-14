@@ -1,0 +1,79 @@
+const express = require('express');
+const mineflayer = require('mineflayer');
+const http = require('http');
+const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+let bakiyeler = {};
+
+const bot = mineflayer.createBot({
+  host: 'play.chickennw.com',
+  port: 25565,
+  username: 'KasaBotu123',
+  version: '1.20.4'
+});
+
+bot.on('messagestr', (message) => {
+  console.log('[SOHBET]:', message);
+  const regex = /(\w+) size (\d+) TL gönderdi/i;
+  const eslesme = message.match(regex);
+
+  if (eslesme) {
+    const gonderen = eslesme[1].toLowerCase();
+    const miktar = parseInt(eslesme[2]);
+
+    if (!bakiyeler[gonderen]) bakiyeler[gonderen] = 0;
+    bakiyeler[gonderen] += miktar;
+
+    console.log(`${gonderen} hesabına ${miktar} eklendi.`);
+    io.emit('bakiyeGuncelle', { kullanici: gonderen, bakiye: bakiyeler[gonderen] });
+  }
+});
+
+app.use(express.static('public'));
+
+io.on('connection', (socket) => {
+  socket.on('girisYap', (kullaniciAdi) => {
+    const isim = kullaniciAdi.toLowerCase();
+    if (!bakiyeler[isim]) bakiyeler[isim] = 0;
+    socket.emit('bakiyeGuncelle', { kullanici: isim, bakiye: bakiyeler[isim] });
+  });
+
+  socket.on('oynaCoinflip', ({ kullaniciAdi, bahis }) => {
+    const isim = kullaniciAdi.toLowerCase();
+    bahis = parseInt(bahis);
+
+    if (!bakiyeler[isim] || bakiyeler[isim] < bahis || bahis <= 0) {
+      return socket.emit('sonuc', { mesaj: 'Yetersiz bakiye!' });
+    }
+
+    const kazandi = Math.random() < 0.5;
+    if (kazandi) {
+      bakiyeler[isim] += bahis;
+      socket.emit('sonuc', { mesaj: `KAZANDIN! +${bahis}`, yeniBakiye: bakiyeler[isim] });
+    } else {
+      bakiyeler[isim] -= bahis;
+      socket.emit('sonuc', { mesaj: `KAYBETTİN! -${bahis}`, yeniBakiye: bakiyeler[isim] });
+    }
+  });
+
+  socket.on('paraCek', ({ kullaniciAdi, miktar }) => {
+    const isim = kullaniciAdi.toLowerCase();
+    miktar = parseInt(miktar);
+
+    if (bakiyeler[isim] >= miktar && miktar > 0) {
+      bakiyeler[isim] -= miktar;
+      bot.chat(`/pay ${kullaniciAdi} ${miktar}`);
+      socket.emit('sonuc', { mesaj: `${miktar} oyun hesabına gönderildi!`, yeniBakiye: bakiyeler[isim] });
+    } else {
+      socket.emit('sonuc', { mesaj: 'Çekilecek bakiye yok!' });
+    }
+  });
+});
+
+server.listen(3000, () => {
+  console.log('Site aktif: http://localhost:3000');
+});

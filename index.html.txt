@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>ChickenSMP Casino</title>
+  <style>
+    body { font-family: Arial; background: #121212; color: white; text-align: center; margin-top: 50px; }
+    .kutu { background: #1e1e1e; padding: 20px; border-radius: 10px; display: inline-block; width: 320px; }
+    input, button { padding: 10px; margin: 5px; width: 85%; border-radius: 5px; border: none; }
+    button { background: #28a745; color: white; font-weight: bold; cursor: pointer; }
+    button:hover { background: #218838; }
+    .cek-btn { background: #dc3545; }
+  </style>
+</head>
+<body>
+  <div class="kutu">
+    <h2>🎰 ChickenSMP Casino</h2>
+    <p>Para yatırmak için oyundan <b>KasaBotu123</b> hesabına <code>/pay</code> atın.</p>
+    
+    <input type="text" id="nick" placeholder="Minecraft Nickin">
+    <button onclick="giris()">Hesaba Bağlan</button>
+    
+    <h3>Bakiye: <span id="bakiye">0</span></h3>
+    <hr>
+    
+    <input type="number" id="miktar" placeholder="Miktar girin">
+    <button onclick="oyna()">Yazı-Tura Oyna (2x)</button>
+    <button class="cek-btn" onclick="cek()">Parayı Oyuna Çek</button>
+    
+    <p id="durum" style="color: yellow; font-weight: bold;"></p>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let aktifKullanici = '';
+
+    function giris() {
+      aktifKullanici = document.getElementById('nick').value;
+      socket.emit('girisYap', aktifKullanici);
+    }
+
+    function oyna() {
+      const bahis = document.getElementById('miktar').value;
+      socket.emit('oynaCoinflip', { kullaniciAdi: aktifKullanici, bahis });
+    }
+
+    function cek() {
+      const miktar = document.getElementById('miktar').value;
+      socket.emit('paraCek', { kullaniciAdi: aktifKullanici, miktar });
+    }
+
+    socket.on('bakiyeGuncelle', (veri) => {
+      if (veri.kullanici === aktifKullanici.toLowerCase()) {
+        document.getElementById('bakiye').innerText = veri.bakiye;
+      }
+    });
+
+    socket.on('sonuc', (veri) => {
+      document.getElementById('durum').innerText = veri.mesaj;
+      if (veri.yeniBakiye !== undefined) {
+        document.getElementById('bakiye').innerText = veri.yeniBakiye;
+      }
+    });
+  </script>
+</body>
+</html>
